@@ -401,6 +401,37 @@ Now that you have the access token, you need to actually make a request to the a
 1. Use the [`http` package](http://docs.meteor.com/#/full/http) to access the service's API directly. You'll probably need to pass the access token from above in a header. For details you'll need to search the API documentation for the service.
 2. Use a package from Atmosphere or npm that wraps the API into a nice JavaScript interface. For example, if you're trying to load data from Facebook you could use the [fbgraph](https://www.npmjs.com/package/fbgraph) npm package. Read more about how to use npm with your app in the [Build System article](build-tool.html#npm).
 
+<h3 id="oauth-in-cordova">Building Cordova apps which use OAuth on Android</h3>
+
+Meteor's OAuth2 implementation (used in the accounts-google, accounts-facebook, and accounts-meteor-developer packages, among others) does not currently work in Cordova apps when run in local development mode, except on the iOS simulator. This limitation is because you need a public Internet address to register as an authorized redirect URL with the login provider.
+
+As a workaround, you can add code which will allow the developer to log in to a development server using the *Inspect Devices* option in Chrome:
+
+```js
+if (Meteor.isClient) {
+  Meteor.impersonate = function (userId) {
+    Meteor.call('impersonate', userId, (err, newUserId) => {
+      Meteor.connection.setUserId(newUserId)
+    })
+  }
+}
+
+if (Meteor.isServer) {
+  if (process.env.NODE_ENV === 'development') {
+    Meteor.methods({
+      impersonate (userId) {
+        let user = Meteor.users.findOne()
+        if (!userId) userId = user && user._id
+        this.setUserId(userId)
+        return userId
+      }
+    })
+  }
+}
+```
+
+Adding this to your shared code base, possibly as a package, allows you to call `Meteor.impersonate()` (potentially supplying a userId) to log in once you're inspecting your attached Cordova application in Chrome.
+
 <h2 id="displaying-user-data">Loading and displaying user data</h2>
 
 Meteor's accounts system, as implemented in `accounts-base`, also includes a database collection and generic functions for getting data about users.
